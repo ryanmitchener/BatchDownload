@@ -49,7 +49,7 @@ public class BatchDownload {
     private long total_downloaded = 0;
     private long total_bytes = 0;
     private int error_count = 0;
-    private static LocalBroadcastManager bm;
+    private static LocalBroadcastManager bm = null;
 
     // File/folder variables
     private static String CACHE_PATH;
@@ -69,20 +69,21 @@ public class BatchDownload {
     private boolean sizeCalculated = false;
 
     // Broadcast Intent Actions
-    public final static String ACTION_CALCULATING = "com.BatchDownload.ACTION_CALCULATING";
-    public final static String ACTION_PROGRESS = "com.BatchDownload.ACTION_PROGRESS";
-    public final static String ACTION_ERROR = "com.BatchDownload.ACTION_ERROR";
-    public final static String ACTION_FILE_DOWNLOADED = "com.BatchDownload.ACTION_FILE_DOWNLOADED";
-    public final static String ACTION_COMPLETE = "com.BatchDownload.ACTION_COMPLETE";
-    public final static String ACTION_CANCELLED = "com.BatchDownload.ACTION_CANCELLED";
+    public final static String ACTION_CALCULATING = "com.ryanmitchener.batchdownload.ACTION_CALCULATING";
+    public final static String ACTION_PROGRESS = "com.ryanmitchener.batchdownload.ACTION_PROGRESS";
+    public final static String ACTION_ERROR = "com.ryanmitchener.batchdownload.ACTION_ERROR";
+    public final static String ACTION_FILE_DOWNLOADED = "com.ryanmitchener.batchdownload.ACTION_FILE_DOWNLOADED";
+    public final static String ACTION_COMPLETE = "com.ryanmitchener.batchdownload.ACTION_COMPLETE";
+    public final static String ACTION_CANCELLED = "com.ryanmitchener.batchdownload.ACTION_CANCELLED";
 
     // Broadcast Intent extras
-    public final static String EXTRA_BYTES_DOWNLOADED = "com.BatchDownload.EXTRA_TOTAL_DOWNLOADED";
-    public final static String EXTRA_TOTAL_BYTES = "com.BatchDownload.EXTRA_TOTAL_BYTES";
-    public final static String EXTRA_ERROR_COUNT = "com.BatchDownload.EXTRA_ERROR_COUNT";
-    public final static String EXTRA_FILENAME = "com.BatchDownload.EXTRA_FILENAME";  // Only available in ACTION_FILE_DOWNLOADED
-    public final static String EXTRA_FILEPATH = "com.BatchDownload.EXTRA_FILEPATH";  // Only available in ACTION_FILE_DOWNLOADED
-    public final static String EXTRA_ERROR_URL = "com.BatchDownload.EXTRA_ERROR_URL";  // Only available in ACTION_ERROR
+    public final static String EXTRA_BYTES_DOWNLOADED = "com.ryanmitchener.batchdownload.EXTRA_TOTAL_DOWNLOADED";
+    public final static String EXTRA_TOTAL_BYTES = "com.ryanmitchener.batchdownload.EXTRA_TOTAL_BYTES";
+    public final static String EXTRA_ERROR_COUNT = "com.ryanmitchener.batchdownload.EXTRA_ERROR_COUNT";
+    public final static String EXTRA_FILES_REMAINING = "com.ryanmitchener.batchdownload.FILES_REMAINING";
+    public final static String EXTRA_FILENAME = "com.ryanmitchener.batchdownload.EXTRA_FILENAME";  // Only available in ACTION_FILE_DOWNLOADED
+    public final static String EXTRA_FILEPATH = "com.ryanmitchener.batchdownload.EXTRA_FILEPATH";  // Only available in ACTION_FILE_DOWNLOADED
+    public final static String EXTRA_ERROR_URL = "com.ryanmitchener.batchdownload.EXTRA_ERROR_URL";  // Only available in ACTION_ERROR
 
     // Create Singleton pattern
     private static BatchDownload sInstance = new BatchDownload();
@@ -104,14 +105,16 @@ public class BatchDownload {
 
     // Singleton pattern instance
     public static BatchDownload getInstance(Context context) {
-        bm = LocalBroadcastManager.getInstance(context);
+        if (DEFAULT_PATH == null) {
+            bm = LocalBroadcastManager.getInstance(context);
 
-        // Create the cache directory
-        DEFAULT_PATH = context.getFilesDir().getAbsolutePath() + "/";
-        CACHE_PATH = DEFAULT_PATH + "com.batchdownload.cache/";
-        cache = new File(CACHE_PATH);
-        if (!cache.exists()) {
-            cache.mkdir();
+            // Create the cache directory
+            DEFAULT_PATH = context.getFilesDir().getAbsolutePath() + "/";
+            CACHE_PATH = DEFAULT_PATH + "com.ryanmitchener.batchdownload.cache/";
+            cache = new File(CACHE_PATH);
+            if (!cache.exists()) {
+                cache.mkdir();
+            }
         }
 
         // Return singleton
@@ -159,6 +162,12 @@ public class BatchDownload {
     }
 
 
+    // Checks if the downloader is running or not
+    public boolean isRunning() {
+        return downloadThreadPool.getActiveCount() > 0;
+    }
+
+
     // Reset variables
     private void resetVars() {
         sizeCalculated = false;
@@ -178,15 +187,6 @@ public class BatchDownload {
     }
 
 
-    // Checks if the downloader is running or not
-    public boolean isRunning() {
-        if (downloadThreadPool.getActiveCount() > 0) {
-            return true;
-        }
-        return false;
-    }
-
-
     // Sends broadcast
     private void sendBroadcast(String type, Bundle extras) {
         if (extras == null) {
@@ -195,6 +195,11 @@ public class BatchDownload {
         extras.putLong(EXTRA_BYTES_DOWNLOADED, total_downloaded);
         extras.putLong(EXTRA_TOTAL_BYTES, total_bytes);
         extras.putInt(EXTRA_ERROR_COUNT, error_count);
+        if (type.equals(ACTION_COMPLETE)) {
+            extras.putInt(EXTRA_FILES_REMAINING, 0);
+        } else {
+            extras.putInt(EXTRA_FILES_REMAINING, downloadWorkQueue.size() + downloadThreadPool.getActiveCount());
+        }
         Intent intent = new Intent(type);
         intent.putExtras(extras);
         bm.sendBroadcast(intent);

@@ -81,12 +81,18 @@ public class ActivityMain extends Activity {
                 requests.remove(0);
             }
         });
+
+        findViewById(R.id.open_activity).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(ActivityMain.this, ActivityTest.class));
+            }
+        });
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        bd.cancel();
     }
 
 
@@ -106,11 +112,11 @@ public class ActivityMain extends Activity {
 //                int percent = Math.round(((float) extras.getLong(BatchDownload.EXTRA_BYTES_DOWNLOADED, 0) / extras.getLong(BatchDownload.EXTRA_TOTAL_SIZE, 0)) * 100);
                 int percent = (int) ((extras.getLong(BatchDownload.EXTRA_BYTES_DOWNLOADED, 0) * 100) / extras.getLong(BatchDownload.EXTRA_TOTAL_BYTES, 0));
                 String kilobytes = (extras.getLong(BatchDownload.EXTRA_TOTAL_BYTES) / 1000) + "KB";
-                text.setText("" + percent + "%: " + kilobytes);
+                text.setText("" + percent + "%: " + kilobytes + ": Remaining: " + extras.getInt(BatchDownload.EXTRA_FILES_REMAINING));
             } else if (intent.getAction().equals(BatchDownload.ACTION_FILE_DOWNLOADED)) {
                 System.out.println(intent.getStringExtra(BatchDownload.EXTRA_FILENAME) + " : " + intent.getStringExtra(BatchDownload.EXTRA_FILEPATH));
             } else if (intent.getAction().equals(BatchDownload.ACTION_COMPLETE)) {
-                text.setText("Download Complete. " + intent.getIntExtra(BatchDownload.EXTRA_ERROR_COUNT, 0) + " errors.");
+                text.setText("Download Complete. " + intent.getIntExtra(BatchDownload.EXTRA_ERROR_COUNT, 0) + " errors." + " Remaining: " + intent.getIntExtra(BatchDownload.EXTRA_FILES_REMAINING, 0));
             }
         }
     }

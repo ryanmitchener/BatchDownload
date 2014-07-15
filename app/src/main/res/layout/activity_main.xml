@@ -15,6 +15,14 @@
         android:layout_height="wrap_content" />
     <Button
         android:id="@+id/add_url"
-        android:layout_width="160dp"
-        android:layout_height="40dp" />
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Download" />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open New Activity"
+        android:id="@+id/open_activity"
+        android:layout_gravity="right" />
 </LinearLayout>

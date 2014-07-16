@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.content.LocalBroadcastManager;
 
 import java.io.BufferedInputStream;
@@ -41,7 +42,13 @@ import java.util.concurrent.TimeUnit;
  * THE SOFTWARE.
  */
 
-// NOTES: Requires Internet permission to use <uses-permission android:name="android.permission.INTERNET" />
+/**
+ * NOTES
+ * -------------------------------------------------------------------------------------------------
+ * + Requires Internet permission to use <uses-permission android:name="android.permission.INTERNET" />
+ * + When creating a BroadcastReceiver, remember to unregister on onDestroy() so you do not get duplicate onReceive() calls
+ */
+
 
 // Class for downloading files concurrently on multiple threads
 public class BatchDownload {
@@ -50,6 +57,7 @@ public class BatchDownload {
     private long total_bytes = 0;
     private int error_count = 0;
     private static LocalBroadcastManager bm = null;
+    private final Handler handler = new Handler();
 
     // File/folder variables
     private static String CACHE_PATH;
@@ -61,11 +69,13 @@ public class BatchDownload {
     private final BlockingQueue<Runnable> sizeWorkQueue;
     private DownloaderThreadPoolExecutor downloadThreadPool;
     private SizeCalculatorThreadPoolExecutor sizeThreadPool;
-    private final Object byteCountLock = new Object();
-    private final Object sizeCalculatorLock = new Object();
+    private final Object total_downloaded_lock = new Object();
+    private final Object total_bytes_lock = new Object();
+    private final Object error_count_lock = new Object();
     private final int CORE_POOL_SIZE = 4;
     private final int MAX_POOL_SIZE = 5;
     private final int KEEP_ALIVE_TIME = 10;
+    private final int PROGRESS_INTERVAL = 32;
     private boolean sizeCalculated = false;
 
     // Broadcast Intent Actions
@@ -132,6 +142,7 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
+            handler.post(new ProgressUpdateTask());
         }
 
         // Add to thread pool
@@ -145,6 +156,7 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
+            handler.post(new ProgressUpdateTask());
         }
 
         // Populate thread pool
@@ -171,11 +183,13 @@ public class BatchDownload {
     // Reset variables
     private void resetVars() {
         sizeCalculated = false;
-        error_count = 0;
-        synchronized (byteCountLock) {
+        synchronized (error_count_lock) {
+            error_count = 0;
+        }
+        synchronized (total_downloaded_lock) {
             total_downloaded = 0;
         }
-        synchronized (sizeCalculatorLock) {
+        synchronized (total_bytes_lock) {
             total_bytes = 0;
         }
 
@@ -192,9 +206,15 @@ public class BatchDownload {
         if (extras == null) {
             extras = new Bundle();
         }
-        extras.putLong(EXTRA_BYTES_DOWNLOADED, total_downloaded);
-        extras.putLong(EXTRA_TOTAL_BYTES, total_bytes);
-        extras.putInt(EXTRA_ERROR_COUNT, error_count);
+        synchronized (total_downloaded_lock) {
+            extras.putLong(EXTRA_BYTES_DOWNLOADED, total_downloaded);
+        }
+        synchronized (total_bytes_lock) {
+            extras.putLong(EXTRA_TOTAL_BYTES, total_bytes);
+        }
+        synchronized (error_count_lock) {
+            extras.putInt(EXTRA_ERROR_COUNT, error_count);
+        }
         if (type.equals(ACTION_COMPLETE)) {
             extras.putInt(EXTRA_FILES_REMAINING, 0);
         } else {
@@ -203,6 +223,25 @@ public class BatchDownload {
         Intent intent = new Intent(type);
         intent.putExtras(extras);
         bm.sendBroadcast(intent);
+    }
+
+
+    /**
+     * Progress Checker
+     * ---------------------------------------------------------------------------------------------
+     */
+
+    // Runs at an interval and sends progress broadcasts
+    private class ProgressUpdateTask implements Runnable {
+        @Override
+        public void run() {
+            if (isRunning()) {
+                if (sizeCalculated) {
+                    sendBroadcast(ACTION_PROGRESS, null);
+                }
+                handler.postDelayed(this, PROGRESS_INTERVAL);
+            }
+        }
     }
 
 
@@ -254,15 +293,10 @@ public class BatchDownload {
                         return;
                     }
 
-                    synchronized (byteCountLock) {
+                    synchronized (total_downloaded_lock) {
                         total_downloaded += bytesRead;
                     }
                     os.write(buffer, 0, bytesRead);
-
-                    // Send progress update if the size is done calculating
-                    if (sizeCalculated) {
-                        sendBroadcast(ACTION_PROGRESS, null);
-                    }
                 }
 
                 // Close streams
@@ -292,7 +326,9 @@ public class BatchDownload {
                 bundle.putString(EXTRA_FILEPATH, movedFile.getAbsolutePath());
                 sendBroadcast(ACTION_FILE_DOWNLOADED, bundle);
             } catch (Exception e) {
-                error_count++;
+                synchronized (error_count_lock) {
+                    error_count++;
+                }
                 Bundle bundle = new Bundle();
                 bundle.putString(EXTRA_ERROR_URL, request.url);
                 sendBroadcast(ACTION_ERROR, bundle);
@@ -314,10 +350,8 @@ public class BatchDownload {
 
             // If current thread is the last in the pool
             if (downloadThreadPool.getActiveCount() == 1) {
-                sendBroadcast(ACTION_COMPLETE, null);
-
-                // Reset variables
                 resetVars();
+                sendBroadcast(ACTION_COMPLETE, null);
             }
         }
 
@@ -325,8 +359,8 @@ public class BatchDownload {
         protected void terminated() {
             super.terminated();
             downloadThreadPool = new DownloaderThreadPoolExecutor(CORE_POOL_SIZE, MAX_POOL_SIZE, KEEP_ALIVE_TIME, TimeUnit.SECONDS, downloadWorkQueue);
-            sendBroadcast(ACTION_CANCELLED, null);
             resetVars();
+            sendBroadcast(ACTION_CANCELLED, null);
         }
     }
 
@@ -354,7 +388,7 @@ public class BatchDownload {
                 HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
                 con.setRequestMethod("HEAD");
                 if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    synchronized (sizeCalculatorLock) {
+                    synchronized (total_bytes_lock) {
                         total_bytes += con.getContentLength();
                     }
                 }

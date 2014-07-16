@@ -20,6 +20,7 @@ import java.util.ArrayList;
 
 public class ActivityMain extends Activity {
     BatchDownload bd;
+    Callback callback = new Callback();
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -68,7 +69,7 @@ public class ActivityMain extends Activity {
         broadcastFilter.addAction(BatchDownload.ACTION_PROGRESS);
         broadcastFilter.addAction(BatchDownload.ACTION_FILE_DOWNLOADED);
         broadcastFilter.addAction(BatchDownload.ACTION_COMPLETE);
-        LocalBroadcastManager.getInstance(this).registerReceiver(new Callback(), broadcastFilter);
+        LocalBroadcastManager.getInstance(this).registerReceiver(callback, broadcastFilter);
 
         bd = BatchDownload.getInstance(this);
 //        bd.add(requests);
@@ -88,11 +89,19 @@ public class ActivityMain extends Activity {
                 startActivity(new Intent(ActivityMain.this, ActivityTest.class));
             }
         });
+
+        findViewById(R.id.cancel).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                bd.cancel();
+            }
+        });
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(callback);
     }
 
 
@@ -103,9 +112,11 @@ public class ActivityMain extends Activity {
             TextView text = (TextView) findViewById(R.id.message);
             if (intent.getAction().equals(BatchDownload.ACTION_CALCULATING)) {
                 text.setText("Calculating size...");
-                System.out.println("Calculating...");
+//                System.out.println("Calculating...");
             } else if (intent.getAction().equals(BatchDownload.ACTION_ERROR)) {
-                System.out.println("Error: " + intent.getStringExtra(BatchDownload.EXTRA_ERROR_URL));
+//                System.out.println("Error: " + intent.getStringExtra(BatchDownload.EXTRA_ERROR_URL));
+            } else if (intent.getAction().equals(BatchDownload.ACTION_CANCELLED)) {
+//                System.out.println("Cancelled");
             } else if (intent.getAction().equals(BatchDownload.ACTION_PROGRESS)) {
                 Bundle extras = intent.getExtras();
                 String errors = "" + extras.getInt(BatchDownload.EXTRA_ERROR_COUNT);
@@ -114,8 +125,9 @@ public class ActivityMain extends Activity {
                 String kilobytes = (extras.getLong(BatchDownload.EXTRA_TOTAL_BYTES) / 1000) + "KB";
                 text.setText("" + percent + "%: " + kilobytes + ": Remaining: " + extras.getInt(BatchDownload.EXTRA_FILES_REMAINING));
             } else if (intent.getAction().equals(BatchDownload.ACTION_FILE_DOWNLOADED)) {
-                System.out.println(intent.getStringExtra(BatchDownload.EXTRA_FILENAME) + " : " + intent.getStringExtra(BatchDownload.EXTRA_FILEPATH));
+//                System.out.println(intent.getStringExtra(BatchDownload.EXTRA_FILENAME) + " : " + intent.getStringExtra(BatchDownload.EXTRA_FILEPATH));
             } else if (intent.getAction().equals(BatchDownload.ACTION_COMPLETE)) {
+//                System.out.println("Complete!");
                 text.setText("Download Complete. " + intent.getIntExtra(BatchDownload.EXTRA_ERROR_COUNT, 0) + " errors." + " Remaining: " + intent.getIntExtra(BatchDownload.EXTRA_FILES_REMAINING, 0));
             }
         }

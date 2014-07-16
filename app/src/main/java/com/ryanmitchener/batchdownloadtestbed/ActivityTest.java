@@ -15,6 +15,7 @@ import com.ryanmitchener.batchdownload.BatchDownload;
  * Created by Ryan on 7/15/14.
  */
 public class ActivityTest extends Activity {
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,8 +38,11 @@ public class ActivityTest extends Activity {
             TextView text = (TextView) findViewById(R.id.test_message);
             if (intent.getAction().equals(BatchDownload.ACTION_CALCULATING)) {
                 text.setText("Calculating size...");
-                System.out.println("Calculating...");
+//                System.out.println("Calculating...");
+            } else if (intent.getAction().equals(BatchDownload.ACTION_CANCELLED)) {
+//                System.out.println("Cancelled");
             } else if (intent.getAction().equals(BatchDownload.ACTION_PROGRESS)) {
+//                System.out.println("New Activity");
                 Bundle extras = intent.getExtras();
                 String errors = "" + extras.getInt(BatchDownload.EXTRA_ERROR_COUNT);
                 int percent = (int) ((extras.getLong(BatchDownload.EXTRA_BYTES_DOWNLOADED, 0) * 100) / extras.getLong(BatchDownload.EXTRA_TOTAL_BYTES, 0));

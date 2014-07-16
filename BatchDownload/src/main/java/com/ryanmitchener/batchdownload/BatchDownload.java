@@ -96,7 +96,7 @@ public class BatchDownload {
     public final static String EXTRA_ERROR_URL = "com.ryanmitchener.batchdownload.EXTRA_ERROR_URL";  // Only available in ACTION_ERROR
 
     // Create Singleton pattern
-    private static BatchDownload sInstance = new BatchDownload();
+    private final static BatchDownload sInstance = new BatchDownload();
 
 
     /**

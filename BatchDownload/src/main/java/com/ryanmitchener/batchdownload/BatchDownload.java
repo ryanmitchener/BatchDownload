@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.content.LocalBroadcastManager;
 
 import java.io.BufferedInputStream;
@@ -57,7 +58,7 @@ public class BatchDownload {
     private long total_bytes = 0;
     private int error_count = 0;
     private static LocalBroadcastManager bm = null;
-    private final Handler handler = new Handler();
+    private static final ProgressThread progressThread = new ProgressThread();
 
     // File/folder variables
     private static String CACHE_PATH;
@@ -115,6 +116,7 @@ public class BatchDownload {
 
     // Singleton pattern instance
     public static BatchDownload getInstance(Context context) {
+        // If BatchDownload hasn't been initialized, initialize it.
         if (DEFAULT_PATH == null) {
             bm = LocalBroadcastManager.getInstance(context);
 
@@ -122,6 +124,10 @@ public class BatchDownload {
             DEFAULT_PATH = context.getFilesDir().getAbsolutePath() + "/";
             CACHE_PATH = DEFAULT_PATH + "com.ryanmitchener.batchdownload.cache/";
             cache = new File(CACHE_PATH);
+
+            // Start the progress thread
+            progressThread.start();
+
             if (!cache.exists()) {
                 cache.mkdir();
             }
@@ -142,7 +148,7 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
-            handler.post(new ProgressUpdateTask());
+            progressThread.mHandler.post(new ProgressUpdateTask());
         }
 
         // Add to thread pool
@@ -156,7 +162,7 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
-            handler.post(new ProgressUpdateTask());
+            progressThread.mHandler.post(new ProgressUpdateTask());
         }
 
         // Populate thread pool
@@ -239,7 +245,7 @@ public class BatchDownload {
                 if (sizeCalculated) {
                     sendBroadcast(ACTION_PROGRESS, null);
                 }
-                handler.postDelayed(this, PROGRESS_INTERVAL);
+                progressThread.mHandler.postDelayed(this, PROGRESS_INTERVAL);
             }
         }
     }
@@ -430,6 +436,7 @@ public class BatchDownload {
      * ---------------------------------------------------------------------------------------------
      */
 
+    // Container class for requests
     public static class Request {
         private String url = null;
         private String filename = null;
@@ -448,6 +455,19 @@ public class BatchDownload {
             this.url = url;
             this.filename = filename;
             this.downloadFolder = downloadFolder;
+        }
+    }
+
+
+    // Thread that runs the progress looper
+    private static class ProgressThread extends Thread {
+        private Handler mHandler;
+
+        @Override
+        public void run() {
+            Looper.prepare();
+            mHandler = new Handler();
+            Looper.loop();
         }
     }
 

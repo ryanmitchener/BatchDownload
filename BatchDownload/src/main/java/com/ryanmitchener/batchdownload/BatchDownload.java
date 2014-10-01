@@ -57,8 +57,8 @@ public class BatchDownload {
     private long total_downloaded = 0;
     private long total_bytes = 0;
     private int error_count = 0;
-    private static LocalBroadcastManager bm = null;
-    private static final ProgressThread progressThread = new ProgressThread();
+    private LocalBroadcastManager bm = null;
+    private final ProgressThread progressThread = new ProgressThread();
 
     // File/folder variables
     private static String CACHE_PATH;
@@ -118,7 +118,7 @@ public class BatchDownload {
     public static BatchDownload getInstance(Context context) {
         // If BatchDownload hasn't been initialized, initialize it.
         if (DEFAULT_PATH == null) {
-            bm = LocalBroadcastManager.getInstance(context);
+            sInstance.bm = LocalBroadcastManager.getInstance(context);
 
             // Create the cache directory
             DEFAULT_PATH = context.getFilesDir().getAbsolutePath() + "/";
@@ -126,7 +126,7 @@ public class BatchDownload {
             cache = new File(CACHE_PATH);
 
             // Start the progress thread
-            progressThread.start();
+            sInstance.progressThread.start();
 
             if (!cache.exists()) {
                 cache.mkdir();
@@ -148,12 +148,19 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
-            progressThread.mHandler.post(new ProgressUpdateTask());
         }
+
+        // So we don't post additional runnables when progress updater is already running
+        boolean alreadyRunning = isRunning();
 
         // Add to thread pool
         downloadThreadPool.execute(new DownloaderTask(request));
         sizeThreadPool.execute(new SizeCalculateTask(request));
+
+        // Start progress updater
+        if (!alreadyRunning) {
+            progressThread.mHandler.post(new ProgressUpdateTask());
+        }
     }
 
 
@@ -162,13 +169,20 @@ public class BatchDownload {
         // Send calculating size broadcast
         if (!isRunning()) {
             sendBroadcast(ACTION_CALCULATING, null);
-            progressThread.mHandler.post(new ProgressUpdateTask());
         }
+
+        // So we don't post additional runnables when progress updater is already running
+        boolean alreadyRunning = isRunning();
 
         // Populate thread pool
         for (Request request : requests) {
             downloadThreadPool.execute(new DownloaderTask(request));
             sizeThreadPool.execute(new SizeCalculateTask(request));
+        }
+
+        // Start progress updater
+        if (!alreadyRunning) {
+            progressThread.mHandler.post(new ProgressUpdateTask());
         }
     }
 

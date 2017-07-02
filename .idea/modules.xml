@@ -3,9 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/BatchDownload/BatchDownload.iml" filepath="$PROJECT_DIR$/BatchDownload/BatchDownload.iml" />
-      <module fileurl="file://$PROJECT_DIR$/BatchDownloadTestBed.iml" filepath="$PROJECT_DIR$/BatchDownloadTestBed.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/batch-download.iml" filepath="$PROJECT_DIR$/batch-download.iml" />
     </modules>
   </component>
 </project>
-
